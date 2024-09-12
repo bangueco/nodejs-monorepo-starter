@@ -2,7 +2,7 @@ import userService from "../service/user.service";
 import { ApiError, ValidationError } from "../utils/error";
 import { HttpStatusCode } from "../utils/http";
 import hashing from "../utils/lib/hashing";
-import { generateAccessToken } from "../utils/lib/token";
+import { generateAccessToken, generateRefreshToken } from "../utils/lib/token";
 import { NextFunction, Request, Response } from "express";
 
 async function login (request: Request, response: Response, next: NextFunction) {
@@ -23,13 +23,22 @@ async function login (request: Request, response: Response, next: NextFunction) 
     if (!isCorrectPassword) throw new ApiError(HttpStatusCode.BAD_REQUEST, "Wrong password!")
 
     const accessToken = generateAccessToken(isUserExist.id, isUserExist.username);
-    // const refreshToken = generateRefreshToken(isUserExist.id, isUserExist.username);
+    const refreshToken = generateRefreshToken(isUserExist.id, isUserExist.username);
+
+    // Store refresh token to cookie
+
+    response.cookie('refreshToken', refreshToken, {
+      httpOnly: true, // avoid javascript access
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict', // avoid csrf attack
+      maxAge: 2592000 // 30d
+    });
 
     return response.status(HttpStatusCode.OK).json({
       id: isUserExist.id,
       username: isUserExist.username,
       accessToken
-    })
+    });
   } catch (error) {
     return next(error)
   }
